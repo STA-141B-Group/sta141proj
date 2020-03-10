@@ -1,14 +1,14 @@
-
-#Updated artist image:
-library(jpeg)
 library(tidytext)
 library(textdata)
 library(lubridate)
 library(httr)
+library(plotly)
 library(tidyverse)
 library(jsonlite)
 library(shiny)
 library(ggplot2)
+library(jpeg)
+
 get_info <- function(artist, title){
   fromJSON((
     str_glue("https://api.vagalume.com.br/search.php?apikey=114e5edf0076c875c605607fa7b82eec&art={artist}&mus={title}&extra=relart,artpic" , artist = str_replace_all(artist , c(" " = "%20")),
@@ -16,7 +16,6 @@ get_info <- function(artist, title){
     ))
   )
 }
-
 # sentiment analysis
 
 
@@ -33,26 +32,24 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       textInput("artist","artist", width = NULL,
-                placeholder = "e.g Justin Bieber"
+                placeholder = "e.g Justin Bieber", value="Justin Bieber"
       ),
       textInput("song","song", width = NULL,
-                placeholder = "e.g Baby"
+                placeholder = "e.g Baby", value="Baby"
       ),
-      checkboxGroupInput("checkboxes", "Choose:",
-                         choiceNames =
-                           list ("Sentiment Analysis Chart", "Image", "Lyrics"),
-                         choiceValues =
-                           list ("sentiment", "image", "lyrics")
-      )
+      checkboxInput("checkboxes", "Sentiment Analysis Chart", value=TRUE),
+      checkboxInput("top", "Top 10 words used", value = TRUE),
+      checkboxInput("pic", "Artist Image", value = TRUE),
+      actionButton("goButton", "Go!")
       
     ),
     
     # Show a plot of the generated distribution
     mainPanel(
-      plotOutput("image"),
       fluidRow(column(10, verbatimTextOutput("lyric"))),
-      plotOutput("pie")
-      
+      plotlyOutput("pie"),
+      plotOutput("bar"),
+      plotOutput("image")
     )
   )
   
@@ -64,10 +61,11 @@ server <- function(input, output) {
   options(warn = -1) 
   
   output$lyric <- renderText({ 
-    if ("lyrics" %in% input$checkboxes) {
+    input$goButton
     lyric <- get_info(input$artist, input$song)$mus$text
-}
+    
   })
+  
   
   img_url = reactive({
     id = get_info(input$artist, input$song)$art$id
@@ -76,7 +74,7 @@ server <- function(input, output) {
   
   
   output$image = renderPlot({
-    if ("image" %in% input$checkboxes) {
+    if (input$pic) {
       download.file(img_url(),'y.jpg', mode = 'wb')
       jj=readJPEG("y.jpg",native=FALSE)
       plot(0:1,0:1,type="n",ann=FALSE,axes=FALSE)
@@ -85,6 +83,7 @@ server <- function(input, output) {
   })
   
   sentiment_analysis <-  reactive({
+    input$goButton
     lines<- get_info(input$artist, input$song)$mus$text %>%
       str_split("\n") %>% 
       unlist() 
@@ -94,7 +93,7 @@ server <- function(input, output) {
       anti_join(stop_words)
     
     
-    sentiment <- token %>% left_join(get_sentiments("nrc")) %>% 
+    sentiment <- token %>% left_join(get_sentiments("bing")) %>% 
       filter(sentiment %in% c("positive", "negative" )) %>% 
       group_by(line) %>% 
       summarize(
@@ -112,16 +111,36 @@ server <- function(input, output) {
     sentiment %>% count(sentiment)
     
   })
-  output$pie <- renderPlot({ 
-    if ("sentiment" %in% input$checkboxes) {
+  output$pie <- renderPlotly({ 
+    input$goButton
+    if (input$checkboxes) {
+      
       df_pie = sentiment_analysis()
-      bp<- ggplot( df_pie, aes(x="", y=n, fill=sentiment)) +geom_bar(width = 1, stat = "identity")
-      pie <- bp + coord_polar("y", start=0)
+      pie <- plot_ly(type='pie', labels=df_pie$sentiment, values=df_pie$n, 
+                     textinfo='label+percent',
+                     insidetextorientation='radial')
       pie
+  
+      
     }
     
   })  
-  
+  output$bar <- renderPlot({
+    input$goButton
+    if(input$top){
+      lines<- get_info(input$artist, input$song)$mus$text %>%
+        str_split("\n") %>% 
+        unlist() 
+      lyric_df<- tibble(line = 1:length(lines), lines)
+      
+      token <-  lyric_df %>% unnest_tokens(word, lines) %>%
+        anti_join(stop_words)
+      token %>% group_by(word) %>% summarise(count=n()) %>% arrange(desc(count)) %>% 
+        head(10) %>%
+        ggplot(aes(x=reorder(word, -count), y=count, fill=word)) + geom_bar(stat="identity") +
+        labs(x="Word", y="Count")
+    }
+  })
 }
 
 # Run the application 
