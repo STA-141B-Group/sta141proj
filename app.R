@@ -74,6 +74,7 @@ server <- function(input, output) {
   
   
   output$image = renderPlot({
+    input$goButton
     if (input$pic) {
       download.file(img_url(),'y.jpg', mode = 'wb')
       jj=readJPEG("y.jpg",native=FALSE)
