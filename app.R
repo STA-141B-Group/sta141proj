@@ -29,14 +29,13 @@ ui <- fluidPage(
   
   titlePanel("Music Lyrics App"),
   sidebarLayout(
+    
     sidebarPanel(
-      textInput("artist","artist", width = NULL,
+      fluidPage(column(10, verbatimTextOutput("text"))),
+      textInput("artist","Artist", width = NULL,
                 placeholder = "e.g Justin Bieber", value="Justin Bieber"
-                
       ),
-      
-      textInput("song","song", width = NULL,
-                
+      textInput("song","Song", width = NULL,
                 placeholder = "e.g Baby", value="Baby"
       ),
       checkboxInput("checkboxes", "Sentiment Analysis Chart", value=TRUE),
@@ -46,17 +45,23 @@ ui <- fluidPage(
       actionButton("goButton", "Go!")
       
     ),
+    
     # Show a plot of the generated distribution
     mainPanel(
-      fluidRow(column(10, verbatimTextOutput("lyric"))),
-      plotlyOutput("pie"),
-      plotOutput("bar"),
-      plotOutput("image"),
-      fluidRow(column(10, tableOutput("table")))
+      tabsetPanel(
+        tabPanel("Lyric Analysis", plotOutput("bar"),plotlyOutput("pie")),
+        tabPanel("Lyrics", verbatimTextOutput("lyric")),
+        tabPanel("Picture and Table", fluidRow(column(8, tableOutput("table"))),
+                 plotOutput("image"))
+      )
     )
   )
 )
-
+# fluidRow(column(10, verbatimTextOutput("lyric"))),
+# plotlyOutput("pie"),
+# plotOutput("bar"),
+# plotOutput("image"),
+# fluidRow(column(10, tableOutput("table")))
 
 server <- function(input, output) {
   
@@ -153,6 +158,8 @@ server <- function(input, output) {
       
     }
   })
+  
+  
 }
 
 # Run the application
