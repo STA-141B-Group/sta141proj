@@ -9,11 +9,13 @@ library(shiny)
 library(ggplot2)
 library(jpeg)
 
+
+key= Sys.getenv("KEY")
 get_info <- function(artist, title){
   fromJSON((
-    str_glue("https://api.vagalume.com.br/search.php?apikey=114e5edf0076c875c605607fa7b82eec&art={artist}&mus={title}&extra=relart,artpic" , artist = str_replace_all(artist , c(" " = "%20")),
+    str_glue("https://api.vagalume.com.br/search.php?apikey={key}&art={artist}&mus={title}&extra=relart,artpic" , artist = str_replace_all(artist , c(" " = "%20")),
              
-             title = str_replace_all(title, c(" " = "%20"))
+             title = str_replace_all(title, c(" " = "%20")), key= Sys.getenv("KEY")
     ))
   )
 }
@@ -50,9 +52,9 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Lyric Analysis", plotOutput("bar"),plotlyOutput("pie")),
-        tabPanel("Lyrics", verbatimTextOutput("lyric")),
-        tabPanel("Picture and Table", fluidRow(column(8, tableOutput("table"))),
-                 plotOutput("image"))
+        tabPanel("Picture and Related Artists", fluidRow(column(8, tableOutput("table"))),
+                 plotOutput("image")),
+        tabPanel("Lyrics", verbatimTextOutput("lyric"))
       )
     )
   )
@@ -74,7 +76,7 @@ server <- function(input, output) {
   
   #test code:  fromJSON("https://api.vagalume.com.br/search.php?art=U2&mus=One&extra=relmus&nolyrics=1&apikey=660a4395f992ff67786584e238f501aa")$mus$related
   relsong_json <- reactive({
-    relsong_url <- fromJSON(paste("https://api.vagalume.com.br/search.php?apikey=660a4395f992ff67786584e238f501aa&art=",input$artist,"&mus=",input$song,"&extra=relmus&nolyrics=1"))$mus$related
+    relsong_url <- fromJSON(paste("https://api.vagalume.com.br/search.php?apikey=",key,"&art=",input$artist,"&mus=",input$song,"&extra=relmus&nolyrics=1"))$mus$related
   })
   output$table <- renderTable({
     input$goButton
@@ -87,7 +89,7 @@ server <- function(input, output) {
   })
   img_url = reactive({
     id = get_info(input$artist, input$song)$art$id
-    img_url = fromJSON(paste("https://api.vagalume.com.br/image.php?bandID=",toString(id),"&apikey=114e5edf0076c875c605607fa7b82eec",simplifyVector = FALSE))$images$url[1]
+    img_url = fromJSON(paste("https://api.vagalume.com.br/image.php?bandID=",toString(id),"&apikey=",key,"",simplifyVector = FALSE))$images$url[1]
   })
   
   output$image = renderPlot({
@@ -107,10 +109,9 @@ server <- function(input, output) {
       unlist()
     lyric_df<- tibble(line = 1:length(lines), lines)
     token <-  lyric_df %>% unnest_tokens(word, lines) %>%
-      
       anti_join(stop_words)
     
-    sentiment <- token %>% left_join(get_sentiments("bing")) %>%
+    sentiment <- token %>% left_join(get_sentiments("nrc")) %>%
       filter(sentiment %in% c("positive", "negative" )) %>%
       group_by(line) %>%
       summarize(
