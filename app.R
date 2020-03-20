@@ -8,6 +8,12 @@ library(jsonlite)
 library(shiny)
 library(ggplot2)
 library(jpeg)
+library(devtools)
+library(rsconnect)
+library(purrr)
+library(graphics)
+library(stats)
+
 
 
 key= Sys.getenv("KEY")
@@ -22,11 +28,7 @@ get_info <- function(artist, title){
 }
 # sentiment analysis
 ui <- fluidPage(
-  #suppress warings while wating for inputs
-  tags$style(type="text/css",
-             ".shiny-output-error { visibility: hidden; }",
-             ".shiny-output-error:before { visibility: hidden; }"
-  ),
+  
   
   # Application title
   
@@ -73,8 +75,8 @@ server <- function(input, output) {
   
   
   #test code:  fromJSON("https://api.vagalume.com.br/search.php?art=U2&mus=One&extra=relmus&nolyrics=1&apikey=660a4395f992ff67786584e238f501aa")$mus$related
- # get relared arist from api
-   relsong_json <- reactive({
+  # get relared arist from api
+  relsong_json <- reactive({
     relsong_url <- fromJSON(paste("https://api.vagalume.com.br/search.php?apikey=",key,"&art=",input$artist,"&mus=",input$song,"&extra=relmus&nolyrics=1"))$mus$related
   })
   #make table
@@ -110,6 +112,7 @@ server <- function(input, output) {
   # create sentiment analysis
   sentiment_analysis <-  reactive({
     input$goButton
+    nrc = read_csv(" lexicon.nrc.csv")
     lines<- get_info(input$artist, input$song)$mus$text %>%
       str_split("\n") %>%
       unlist()
@@ -119,7 +122,7 @@ server <- function(input, output) {
     token <-  lyric_df %>% unnest_tokens(word, lines) %>%
       anti_join(stop_words)
     #add info from lexicom
-    sentiment <- token %>% left_join(get_sentiments("nrc")) %>%
+    sentiment <- token %>% left_join(nrc) %>%
       #filter non pos neg words
       filter(sentiment %in% c("positive", "negative" )) %>%
       # group by line and sum up pos and negative words
@@ -158,7 +161,7 @@ server <- function(input, output) {
     input$goButton
     
     if(input$top){
-  #split lyrcs by line
+      #split lyrcs by line
       lines<- get_info(input$artist, input$song)$mus$text %>%
         str_split("\n") %>%
         unlist()
