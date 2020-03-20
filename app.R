@@ -28,7 +28,11 @@ get_info <- function(artist, title){
 }
 # sentiment analysis
 ui <- fluidPage(
-  
+  #suppress warings while wating for inputs
+  tags$style(type="text/css",
+             ".shiny-output-error { visibility: hidden; }",
+             ".shiny-output-error:before { visibility: hidden; }"
+  ),
   
   # Application title
   
