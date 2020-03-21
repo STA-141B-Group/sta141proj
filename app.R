@@ -38,8 +38,10 @@ ui <- fluidPage(
   
   titlePanel("Music Lyrics App"),
   sidebarLayout(
+   
     # adding compents into side bar
     sidebarPanel(
+      h5("Enter an Artist and Song:"),
       fluidPage(column(10, verbatimTextOutput("text"))),
       textInput("artist","Artist", width = NULL,
                 placeholder = "e.g Justin Bieber", value="Justin Bieber"
